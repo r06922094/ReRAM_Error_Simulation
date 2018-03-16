@@ -4,8 +4,12 @@ import tensorflow as tf
 import pickle as pk
 from math import *
 
+def testing_fun():
+    print('testing')
+    return
+
 def isround(p):
-    if random.uniform(0,1) >= p:
+    if random.uniform(0,1) > p:
         return 0
     else:
         return 1
@@ -75,7 +79,7 @@ def insert_error(ideal, err_list):
                     break
     return ideal
 
-def composition(x_image, conv_list, WL, IL, shape, Act_unit):
+def composition(x_image, conv_list, IL, FL, WL, shape, Act_unit):
     # load error file
     error_list = pk.load(open('Err_file.p', 'rb'))
     arr = []
@@ -89,6 +93,7 @@ def composition(x_image, conv_list, WL, IL, shape, Act_unit):
             for k in range(1, iterate, 1):
                 con_result = tf.nn.conv2d(x_image[i], conv_list[j][k], strides=[1,1,1,1], padding='SAME')
                 tmp_result += tf.py_func(insert_error, [con_result, error_list], tf.float32)
+                #tmp_result += insert_error(con_result, error_list)
             #h_conv1_arr[i].append(tf.nn.conv2d(x_image[i], W_conv1_list[j], strides=[1,1,1,1], padding='SAME'))
             arr[i].append(tmp_result)
         shift = IL - 1

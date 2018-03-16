@@ -34,7 +34,7 @@ with tf.name_scope('Conv1'):
     with tf.name_scope('Biases'):
         b_conv1 = tf.Variable(tf.zeros([32]))     
     with tf.name_scope('Convolution'):
-        h_conv1 = ei.composition(x_image, W_conv1_list, WL, IL, W_conv1.shape, Act_unit)
+        h_conv1 = ei.composition(x_image, W_conv1_list, IL, FL, WL, W_conv1.shape, Act_unit)
         h_conv1 += b_conv1
     with tf.name_scope('Relu'):
         h_conv1 = tf.nn.relu(h_conv1) # 28x28x32

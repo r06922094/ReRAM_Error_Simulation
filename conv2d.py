@@ -2,50 +2,31 @@ import tensorflow as tf
 import numpy as np
 import pickle as pk
 import random
+import error_insertion as ei
 
-print(random.uniform(0,1))
-
-def activation_unit(W, unit):
-    Act_list = []
-    for j in range(W.shape[0]):
-        S = W[j].reshape((-1, W[j].shape[3])) # straighten
-        act_list = []
-        index = 0
-        for i in range(0, S.shape[0], unit):
-            act_list.append(np.zeros(S.shape))
-            if (i+unit) < S.shape[0]:
-                en = i + unit
-            else:
-                en = S.shape[0]
-            act_list[index][i:en] = S[i:en]
-            index += 1
-        Act_list.append(act_list)
-    Act_list = np.array(Act_list)
-    Act_list = Act_list.reshape(W.shape[0], -1, W.shape[1], W.shape[2], W.shape[3], W.shape[4])
-    return np.float32(Act_list)
-
-def insert_error(ideal, err_list):
-    for x in np.nditer(ideal, op_flags=['readwrite']):
-        for u in range(11): # only consider 10 cells accumulation
-            if random.uniform(0,1) < err_list[9][int(x[...])][u]:
-                x[...] = u
-    return ideal
-
+'''
 err_list = pk.load(open('Err_file.p', 'rb'))
-print(err_list[9])
-x = tf.constant([[[[1,1],[0,1],[1,2]],
-                  [[1,2],[0,1],[2,1]],
-                  [[0,1],[1,1],[1,1]]]], tf.float32) #NHWC
+'''
 
-filt = tf.constant([[[[1,0],[1,1]], [[1,1],[1,0]]],
-                    [[[1,0],[1,1]], [[0,1],[1,1]]]], tf.float32) #[filter_height, filter_width, in_channels, out_channels]
-
-
+#x = tf.constant([[[[1,1],[0,1],[1,2]],
+#                  [[1,2],[0,1],[2,1]],
+#                  [[0,1],[1,1],[1,1]]]], tf.float32) #NHWC #shape=(1,3,3,2)
+x = tf.constant([[[[1],[0],[1]],
+                  [[1],[0],[2]],
+                  [[0],[1],[1]]]], tf.float32) #NHWC #shape=(1,3,3,1)
+filt = tf.constant([[[[1,0]], [[1,1]]],
+                    [[[1,0]], [[0,1]]]], tf.float32) #[filter_height, filter_width, in_channels, out_channels] #shape=(2,2,1,2)
 Act_unit = 3
-org_result = tf.nn.conv2d(x, filt, strides=[1,1,1,1], padding='VALID')
-err_result = tf.py_func(insert_error, [org_result, err_list], tf.float32)
-#filist = tf.py_func(activation_unit, [filt, Act_unit], tf.float32)
-#print(ll)
+IL = 3
+FL = 1
+WL = IL + FL
+
+org_result = tf.nn.conv2d(x, filt, strides=[1,1,1,1], padding='SAME')
+x_err = tf.py_func(ei.decomposition, [x, IL, FL, WL], tf.float32)
+filt_err = tf.py_func(ei.decomposition, [filt, IL, FL, WL], tf.float32)
+filt_err = tf.py_func(ei.activation_unit, [filt_err, Act_unit], tf.float32)
+err_result = ei.composition(x_err, filt_err, IL, FL, WL, filt.shape, Act_unit)
+
 '''
 x1 = tf.constant([[[[1],[2],[1]],
                    [[1],[3],[2]],
@@ -89,12 +70,15 @@ sess.run(init)
 
 #print('x0',sess.run(x0))
 #print('x1',sess.run(x1))
-#print('x.shape', sess.run(tf.shape(x)))
-#print('filter.shape', sess.run(tf.shape(filt)))
+#print('x', sess.run(tf.shape(x)))
+#print('filter', sess.run(tf.shape(filt)))
 #print('result', sess.run(result))
 print('org_result', sess.run(org_result))
 print('org_result.shape', sess.run(tf.shape(org_result)))
+#print('x_err', sess.run(x_err))
+#print('filt_err', sess.run(filt_err))
 print('err_result', sess.run(err_result))
+print('err_result.shape', sess.run(tf.shape(err_result)))
 #print('filist', sess.run(filist))
 #print('filist.shape', sess.run(tf.shape(filist)[0]))
 #print('result3', sess.run(result3))
