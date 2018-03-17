@@ -87,5 +87,11 @@ for i in tqdm(range(batch_num)):
     test_accuracy += accuracy.eval(feed_dict={x: batch_img, y_: batch_label})
 test_accuracy /= batch_num
 
+'''
+for i in tqdm(range(batch_num)):
+    #batch = mnist.test.next_batch(batch_size)
+    test_accuracy += accuracy.eval(feed_dict={x: batch[0], y_: batch[1]})
+'''
+
 print('accuracy: %g'%test_accuracy)
 #print("accuracy: ",accuracy.eval(feed_dict={x: mnist.test.images, y_:mnist.test.labels}))

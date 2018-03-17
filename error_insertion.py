@@ -51,11 +51,17 @@ def decomposition(x, IL, FL, WL):
     x = np.array(x).T 
     return np.float32(x).reshape(((-1,) + xshape))
 
-def activation_unit(W, unit):
+def activation_unit(W, unit, computeType):
     # must be bit-decomposed first 
     Act_list = []
     for i in range(W.shape[0]):
-        S = W[i].reshape((-1, W[i].shape[3])) # straighten
+        if computeType == 0: # Conv2d
+            S = W[i].reshape((-1, W[i].shape[3])) # straighten
+        elif computeType == 1: # Matmul
+            S = W[i]
+        else:
+            S = W[i]
+            print(computeType)
         act_list = []
         index = 0
         for j in range(0, S.shape[0], unit):
@@ -67,7 +73,10 @@ def activation_unit(W, unit):
             act_list[index][j:en] = S[j:en]
             index += 1
         Act_list.append(act_list)
-    Act_list = np.array(Act_list).reshape(W.shape[0], -1, W.shape[1], W.shape[2], W.shape[3], W.shape[4])
+    if computeType == 0:
+        Act_list = np.array(Act_list).reshape(W.shape[0], -1, W.shape[1], W.shape[2], W.shape[3], W.shape[4])
+    elif computeType == 1:
+        Act_list = np.array(Act_list)
     return np.float32(Act_list)
 
 def insert_error(ideal, err_list):
@@ -79,7 +88,7 @@ def insert_error(ideal, err_list):
                     break
     return ideal
 
-def composition(x_image, conv_list, IL, FL, WL, shape, Act_unit):
+def composition(x_image, conv_list, IL, FL, WL, shape, Act_unit, computeType):
     # load error file
     error_list = pk.load(open('Err_file.p', 'rb'))
     arr = []
@@ -87,14 +96,19 @@ def composition(x_image, conv_list, IL, FL, WL, shape, Act_unit):
     for i in range(WL):
         arr.append([])
         for j in range(WL):
-            # Deal with activation unit    
-            tmp_result = tf.nn.conv2d(x_image[i], conv_list[j][0], strides=[1,1,1,1], padding='SAME') 
-            iterate = shape[0] * shape[1] * shape[2] // Act_unit + 1
+            # Deal with activation unit
+            if computeType == 'Conv2d':
+                tmp_result = tf.nn.conv2d(x_image[i], conv_list[j][0], strides=[1,1,1,1], padding='SAME') 
+                iterate = shape[0] * shape[1] * shape[2] // Act_unit + 1
+            elif computeType == 'Matmul':
+                tmp_result = tf.matmul(x_image[i], conv_list[j][0])
+                iterate = shape[0] // Act_unit + 1
             for k in range(1, iterate, 1):
-                con_result = tf.nn.conv2d(x_image[i], conv_list[j][k], strides=[1,1,1,1], padding='SAME')
+                if computeType == 'Conv2d':
+                    con_result = tf.nn.conv2d(x_image[i], conv_list[j][k], strides=[1,1,1,1], padding='SAME')
+                elif computeType == 'Matmul':
+                    con_result = tf.matmul(x_image[i], conv_list[j][k])
                 tmp_result += tf.py_func(insert_error, [con_result, error_list], tf.float32)
-                #tmp_result += insert_error(con_result, error_list)
-            #h_conv1_arr[i].append(tf.nn.conv2d(x_image[i], W_conv1_list[j], strides=[1,1,1,1], padding='SAME'))
             arr[i].append(tmp_result)
         shift = IL - 1
         result.append(-arr[i][0]*(2**shift)) # sign bit
@@ -107,3 +121,4 @@ def composition(x_image, conv_list, IL, FL, WL, shape, Act_unit):
         shift -= 1
         output += result[k] * (2**shift)
     return output
+

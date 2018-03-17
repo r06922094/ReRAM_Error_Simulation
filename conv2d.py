@@ -24,8 +24,8 @@ WL = IL + FL
 org_result = tf.nn.conv2d(x, filt, strides=[1,1,1,1], padding='SAME')
 x_err = tf.py_func(ei.decomposition, [x, IL, FL, WL], tf.float32)
 filt_err = tf.py_func(ei.decomposition, [filt, IL, FL, WL], tf.float32)
-filt_err = tf.py_func(ei.activation_unit, [filt_err, Act_unit], tf.float32)
-err_result = ei.composition(x_err, filt_err, IL, FL, WL, filt.shape, Act_unit)
+filt_err = tf.py_func(ei.activation_unit, [filt_err, Act_unit, 0], tf.float32)
+err_result = ei.composition(x_err, filt_err, IL, FL, WL, filt.shape, Act_unit, 'Conv2d')
 
 '''
 x1 = tf.constant([[[[1],[2],[1]],
