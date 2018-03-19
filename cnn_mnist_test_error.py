@@ -14,7 +14,7 @@ FL = 4
 WL = IL + FL
 Act_unit = 10
 batch_size = 1
-testing_img_number = 10
+testing_img_number = 100
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
@@ -24,15 +24,14 @@ y_ = tf.placeholder(tf.float32, shape=[None, 10], name='y_')
 x_image = tf.reshape(x, [-1, 28, 28, 1])
 # ==Convolution layer== #    
 with tf.name_scope('Conv1'):
-    with tf.name_scope('Input_Decomposition'):
-        x_image = tf.py_func(ei.decomposition, [x_image, IL, FL, WL], tf.float32)
     with tf.name_scope('Weights'):
-        W_conv1	= tf.Variable(tf.truncated_normal([5,5,1,32], stddev=0.1)) # 5x5, input_size=1, output_size=32
-        W_conv1_list = tf.py_func(ei.decomposition, [W_conv1, IL, FL, WL], tf.float32) 
-        W_conv1_list = tf.py_func(ei.activation_unit, [W_conv1_list, Act_unit, 0], tf.float32)   
+        W_conv1	= tf.Variable(tf.truncated_normal([3,3,1,32], stddev=0.1)) # 3x3, input_size=1, output_size=32  # 5x5
     with tf.name_scope('Biases'):
         b_conv1 = tf.Variable(tf.zeros([32]))     
     with tf.name_scope('Convolution'):
+        x_image = tf.py_func(ei.decomposition, [x_image, IL, FL, WL], tf.float32)
+        W_conv1_list = tf.py_func(ei.decomposition, [W_conv1, IL, FL, WL], tf.float32) 
+        W_conv1_list = tf.py_func(ei.activation_unit, [W_conv1_list, Act_unit, 0], tf.float32)   
         h_conv1 = ei.composition(x_image, W_conv1_list, IL, FL, WL, W_conv1.shape, Act_unit, computeType='Conv2d')
         #h_conv1 = tf.nn.conv2d(x_image, W_conv1, strides=[1,1,1,1], padding='SAME')
         h_conv1 += b_conv1
@@ -42,17 +41,16 @@ with tf.name_scope('Maxpooling'):
     h_pool1 = tf.nn.max_pool(h_conv1, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME') # 14x14x32
 
 with tf.name_scope('Conv2'):
-    with tf.name_scope('Input_Decompddosition'):
-        h_pool1 = tf.py_func(ei.decomposition, [h_pool1, IL, FL, WL], tf.float32) 
     with tf.name_scope('Weights'):
-        W_conv2 = tf.Variable(tf.truncated_normal([5,5,32,64], stddev=0.1))
-        W_conv2_list = tf.py_func(ei.decomposition, [W_conv2, IL, FL, WL], tf.float32) 
-        W_conv2_list = tf.py_func(ei.activation_unit, [W_conv2_list, Act_unit, 0], tf.float32)
+        W_conv2 = tf.Variable(tf.truncated_normal([3,3,32,64], stddev=0.1)) # 5x5
     with tf.name_scope('Biases'):
         b_conv2 = tf.Variable(tf.zeros(([64])))
     with tf.name_scope('Convolution'):
-        h_conv2 = ei.composition(h_pool1, W_conv2_list, IL, FL, WL, W_conv1.shape, Act_unit, computeType='Conv2d')
-        #h_conv2 = tf.nn.conv2d(h_pool1, W_conv2, strides=[1,1,1,1], padding='SAME') + b_conv2
+        h_pool1 = tf.py_func(ei.decomposition, [h_pool1, IL, FL, WL], tf.float32) 
+        W_conv2_list = tf.py_func(ei.decomposition, [W_conv2, IL, FL, WL], tf.float32) 
+        W_conv2_list = tf.py_func(ei.activation_unit, [W_conv2_list, Act_unit, 0], tf.float32)
+        h_conv2 = ei.composition(h_pool1, W_conv2_list, IL, FL, WL, W_conv2.shape, Act_unit, computeType='Conv2d')
+        #h_conv2 = tf.nn.conv2d(h_pool1, W_conv2, strides=[1,1,1,1], padding='SAME')
         h_conv2 += b_conv2
     with tf.name_scope('Relu'): 
         h_conv2 = tf.nn.relu(h_conv2) # 14x14x64
@@ -61,9 +59,9 @@ with tf.name_scope('Maxpooling'):
 # ==Fully connected layer== #
 with tf.name_scope('Dense1'):
     with tf.name_scope('Weights'):
-        W_fcon1 = tf.Variable(tf.truncated_normal([7*7*64, 1024], stddev=0.1))
+        W_fcon1 = tf.Variable(tf.truncated_normal([7*7*64, 128], stddev=0.1)) # 1024
     with tf.name_scope('Biases'):
-        b_fcon1 = tf.Variable(tf.zeros([1024]))
+        b_fcon1 = tf.Variable(tf.zeros([128])) # 1024
     with tf.name_scope('Flatten'):
         flatten = tf.reshape(h_pool2, [-1,7*7*64])
     with tf.name_scope('Formula'):
@@ -78,9 +76,11 @@ with tf.name_scope('Dense1'):
     with tf.name_scope('Dropout'):
         h_drop1 = tf.nn.dropout(h_fcon1, 0.5)
 
-W_fcon2 = tf.Variable(tf.zeros([1024,10]), name='w')
-b_fcon2 = tf.Variable(tf.zeros([10]), name='b')
 with tf.name_scope('Dense2'):
+    with tf.name_scope('Weights'):
+        W_fcon2 = tf.Variable(tf.zeros([128, 10]))
+    with tf.name_scope('Biases'):
+        b_fcon2 = tf.Variable(tf.zeros([10]))
     with tf.name_scope('Formula'):
         h_drop1 = tf.py_func(ei.decomposition, [h_drop1, IL, FL, WL], tf.float32)
         W_fcon2_list = tf.py_func(ei.decomposition, [W_fcon2, IL, FL, WL], tf.float32)
@@ -91,7 +91,6 @@ with tf.name_scope('Dense2'):
         prediction = h_fcon2
 
 prediction = tf.identity(prediction, name='prediction')
-
 
 # initialize Graph
 sess = tf.InteractiveSession()

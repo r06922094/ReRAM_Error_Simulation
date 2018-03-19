@@ -14,7 +14,7 @@ x_image = tf.reshape(x, [-1, 28, 28, 1])
 # ==Convolution layer== #
 with tf.name_scope('Conv1'):
     with tf.name_scope('Weights'):
-        W_conv1	= tf.Variable(tf.truncated_normal([5,5,1,32], stddev=0.1)) # 5x5, input_size=1, output_size=32
+        W_conv1	= tf.Variable(tf.truncated_normal([3,3,1,32], stddev=0.1)) # 3x3, input_size=1, output_size=32
     with tf.name_scope('Biases'):
         b_conv1 = tf.Variable(tf.zeros([32]))
     with tf.name_scope('Convolution'):
@@ -26,7 +26,7 @@ with tf.name_scope('Maxpooling'):
 
 with tf.name_scope('Conv2'):
     with tf.name_scope('Weights'):
-        W_conv2 = tf.Variable(tf.truncated_normal([5,5,32,64], stddev=0.1))
+        W_conv2 = tf.Variable(tf.truncated_normal([3,3,32,64], stddev=0.1))
     with tf.name_scope('Biases'):
         b_conv2 = tf.Variable(tf.zeros(([64])))
     with tf.name_scope('Convolution'):
@@ -38,9 +38,9 @@ with tf.name_scope('Maxpooling'):
 # ==Fully connected layer== #
 with tf.name_scope('Dense1'):
     with tf.name_scope('Weights'):
-        W_fcon1 = tf.Variable(tf.truncated_normal([7*7*64, 1024], stddev=0.1))
+        W_fcon1 = tf.Variable(tf.truncated_normal([7*7*64, 128], stddev=0.1))
     with tf.name_scope('Biases'):
-        b_fcon1 = tf.Variable(tf.zeros([1024]))
+        b_fcon1 = tf.Variable(tf.zeros([128]))
     with tf.name_scope('Flatten'):
         flatten = tf.reshape(h_pool2, [-1,7*7*64])
     with tf.name_scope('Formula'):
@@ -49,10 +49,11 @@ with tf.name_scope('Dense1'):
         h_fcon1 = tf.nn.relu(h_fcon1)
     with tf.name_scope('Dropout'):
         h_drop1 = tf.nn.dropout(h_fcon1, 0.5)
-
-W_fcon2 = tf.Variable(tf.zeros([1024,10]), name='w')
-b_fcon2 = tf.Variable(tf.zeros([10]), name='b')
 with tf.name_scope('Dense2'):
+    with tf.name_scope('Weights'):
+        W_fcon2 = tf.Variable(tf.zeros([128, 10]))
+    with tf.name_scope('Biases'):
+        b_fcon2 = tf.Variable(tf.zeros([10]))
     with tf.name_scope('Formula'):
         h_fcon2 = tf.matmul(h_drop1, W_fcon2) + b_fcon2
         prediction = h_fcon2

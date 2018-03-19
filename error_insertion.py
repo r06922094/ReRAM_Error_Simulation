@@ -88,6 +88,10 @@ def insert_error(ideal, err_list):
                     break
     return ideal
 
+#def new_insert_error(arr, err): 
+
+
+
 def composition(x_image, conv_list, IL, FL, WL, shape, Act_unit, computeType):
     # load error file
     error_list = pk.load(open('Err_file.p', 'rb'))
