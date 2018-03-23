@@ -4,7 +4,7 @@ import tensorflow as tf
 # 55,000 training data
 # 10,000 testing data
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
-iteration = 1000
+iteration = 20000
 
 # Create Model
 x = tf.placeholder(tf.float32, shape=[None, 784], name='x')
