@@ -6,7 +6,7 @@ for i in range(mylist.shape[1]):
         if i-1 == j:
             mylist[9][i][j] = 0
         elif i == j:
-            mylist[9][i][j] = 1
+            mylist[9][i][j] = 1.0
         elif i+1 == j:
             mylist[9][i][j] = 0
         else:
