@@ -13,9 +13,10 @@ IL = 2
 FL = 4
 WL = IL + FL
 unit = 10
-batch_size = 5
+batch_size = 1
 testing_img_number = 10
-error_list = pk.load(open('perfect.p', 'rb'))
+#error_list = pk.load(open('Error_file/Err_file_2.7.pkl', 'rb'))
+error_list = pk.load(open('Error_file/996.p', 'rb'))
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
@@ -85,9 +86,6 @@ for i in tqdm(range(batch_num)):
 
 test_accuracy /= batch_num
 
-#print('h_conv1_o',sess.run(h_conv1_o, feed_dict={x:test_img[0:2], y_:test_label[0:2]}))
-#print('h_conv1',sess.run(h_conv1, feed_dict={x:test_img[0:2], y_:test_label[0:2]}))
-#print(sess.run(W_conv1))
 print('IL:', IL)
 print('FL:', FL)
 print('batch size:', batch_size)

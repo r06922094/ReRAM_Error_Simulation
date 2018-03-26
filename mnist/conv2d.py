@@ -7,8 +7,7 @@ unit = 2
 IL = 2
 FL = 14
 WL = IL + FL
-error_list = pk.load(open('perfect.p', 'rb'))
-
+error_list = pk.load(open('Error_file/perfect.p', 'rb'))
 x = tf.constant([[[[0.1],[0.3],[0.2]],
                   [[0.1],[0.41],[0.31]],
                   [[0.5],[0.61],[0.1]]]], tf.float32) #NHWC #shape=(1,3,3,1)
