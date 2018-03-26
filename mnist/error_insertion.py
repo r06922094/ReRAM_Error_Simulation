@@ -4,6 +4,8 @@ import tensorflow as tf
 from math import *
 
 def crossbar(x, w, IL, FL, WL, unit, error_list, computeType):
+    sess = tf.InteractiveSession()
+    tf.global_variables_initializer().run()
     x_bit = tf.py_func(decompose_bit, [x, IL, FL, WL], tf.float32)
     w_bit = tf.py_func(decompose_bit, [w, IL, FL, WL], tf.float32)
     w_bit_unit = tf.py_func(decompose_unit, [w_bit, unit, computeType], tf.float32)
@@ -67,7 +69,7 @@ def compute_and_compose(x, w, IL, FL, WL, shape, unit, computeType, error_list):
                     compute_result = tf.matmul(x[b_x], w[a][b_w])
                 bit_composed_with_error = tf.py_func(insert_error, [compute_result, error_list, unit], tf.float32)
                 bit_composed += bit_composed_with_error * (2**shift_w)
-            act_composed += bit_composed_with_error
+            act_composed += bit_composed
         if b_x == 0:
             result -= act_composed * (2**shift_x) # sign bit
         else:
