@@ -12,11 +12,11 @@ start_time = time.time()
 IL = 2
 FL = 4
 WL = IL + FL
-unit = 10
+unit = 2
 batch_size = 1
-testing_img_number = 10
-#error_list = pk.load(open('Error_file/Err_file_2.7.pkl', 'rb'))
-error_list = pk.load(open('Error_file/996.p', 'rb'))
+testing_img_number = 1
+error_list = pk.load(open('Error_file/Err_file_3.3.pkl', 'rb'))
+#error_list = pk.load(open('Error_file/996.p', 'rb'))
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
