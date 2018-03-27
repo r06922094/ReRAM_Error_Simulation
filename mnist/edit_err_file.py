@@ -5,12 +5,12 @@ for k in range(mylist.shape[0]):
     for i in range(mylist.shape[1]):
         for j in range(mylist.shape[2]):
             if i-1 == j:
-                mylist[k][i][j] = 0.002
+                mylist[k][i][j] = 0
             elif i == j:
-                mylist[k][i][j] = 0.998
+                mylist[k][i][j] = 1.0
             elif i+1 == j:
-                mylist[k][i][j] = 1.000
+                mylist[k][i][j] = 0
             else:
                 mylist[k][i][j] = 0
 print(mylist[9])
-pk.dump(mylist, open('Error_file/996.p', 'wb'))
+pk.dump(mylist, open('Error_file/perfect.p', 'wb'))

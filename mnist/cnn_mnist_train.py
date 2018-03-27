@@ -13,13 +13,13 @@ x_image = tf.reshape(x, [-1, 28, 28, 1])
 
 # ==Convolution layer== #
 with tf.name_scope('Conv1'):
-    W_conv1	= tf.Variable(tf.truncated_normal([3,3,1,16], stddev=0.1), name='weight') # 3x3,in=1,out=16
+    W_conv1 = tf.Variable(tf.truncated_normal([3,3,1,16], stddev=0.1), name='weight') # 3x3,in=1,out=16
     b_conv1 = tf.Variable(tf.zeros([16]), name='bias')
     h_conv1 = tf.nn.conv2d(x_image, W_conv1, strides=[1,1,1,1], padding='SAME', name='convolution') + b_conv1
     h_conv1 = tf.nn.relu(h_conv1, name='relu') # 28x28x16
     layer1 = tf.nn.max_pool(h_conv1, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME', name='pooling') # 14x14x16
 with tf.name_scope('Conv2'):
-    W_conv2	= tf.Variable(tf.truncated_normal([3,3,16,32], stddev=0.1), name='weight') # 3x3, in=16, output_size=32
+    W_conv2 = tf.Variable(tf.truncated_normal([3,3,16,32], stddev=0.1), name='weight') # 3x3, in=16, output_size=32
     b_conv2 = tf.Variable(tf.zeros([32]), name='bias')
     h_conv2 = tf.nn.conv2d(layer1, W_conv2, strides=[1,1,1,1], padding='SAME', name='convolution') + b_conv2
     h_conv2 = tf.nn.relu(h_conv2, name='relu') # 28x28x32

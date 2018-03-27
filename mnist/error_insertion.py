@@ -67,8 +67,8 @@ def compute_and_compose(x, w, IL, FL, WL, shape, unit, computeType, error_list):
                     compute_result = tf.nn.conv2d(x[b_x], w[a][b_w], strides=[1,1,1,1], padding='SAME') 
                 else: # Matmul
                     compute_result = tf.matmul(x[b_x], w[a][b_w])
-                bit_composed_with_error = tf.py_func(insert_error, [compute_result, error_list, unit], tf.float32)
-                bit_composed += bit_composed_with_error * (2**shift_w)
+                result_with_error = tf.py_func(insert_error, [compute_result, error_list, unit], tf.float32)
+                bit_composed += result_with_error * (2**shift_w)
             act_composed += bit_composed
         if b_x == 0:
             result -= act_composed * (2**shift_x) # sign bit
