@@ -12,5 +12,5 @@ for k in range(mylist.shape[0]):
                 mylist[k][i][j] = 0
             else:
                 mylist[k][i][j] = 0
-print(mylist[9])
+mylist[0][1][0] = 1
 pk.dump(mylist, open('Error_file/perfect.p', 'wb'))

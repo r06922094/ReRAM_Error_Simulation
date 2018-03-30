@@ -4,19 +4,17 @@ import tensorflow as tf
 from math import *
 
 def crossbar(x, w, IL, FL, WL, unit, error_list, computeType):
-    sess = tf.InteractiveSession()
-    tf.global_variables_initializer().run()
     x_bit = tf.py_func(decompose_bit, [x, IL, FL, WL], tf.float32)
     w_bit = tf.py_func(decompose_bit, [w, IL, FL, WL], tf.float32)
-    w_bit_unit = tf.py_func(decompose_unit, [w_bit, unit, computeType], tf.float32)
-    return compute_and_compose(x_bit, w_bit_unit, IL, FL, WL, w.shape, unit, computeType, error_list)
+    w_bit_unit, count_cell = tf.py_func(decompose_unit, [w_bit, unit, computeType], [tf.float32, tf.float32])
+    return compute_and_compose(x_bit, w_bit_unit, count_cell, IL, FL, WL, w.shape, unit, computeType, error_list)
 
 def decompose_bit(x, IL, FL, WL):
     # input: high precision x
     # output: A list of deomposed x. (one bit)
     xshape = x.shape 
     x = [roundAndConvert(i, IL, FL, WL) for i in np.nditer(x)]
-    x = np.array(x).T 
+    x = np.array(x).T
     return np.float32(x).reshape(((-1,) + xshape))
 
 def decompose_unit(w, unit, computeType):
@@ -26,22 +24,27 @@ def decompose_unit(w, unit, computeType):
     else: # Matmul(BIO)
         pass
     Act = []
+    Count_cell = []
     A = ceil(w.shape[1] / unit)
     for a in range(A): # A
         Act.append(np.zeros(w.shape))
+        Count_cell.append(np.zeros(w.shape))
         for b in range(w.shape[0]): # B
-            for h in range(w.shape[1]): # I
+            for i in range(w.shape[1]): # I
                 start = a * unit
                 end = (a+1)*unit
                 if end > w.shape[1]:
                     end = w.shape[1]
                 Act[a][b][start:end] = w[b][start:end]
+                Count_cell[a][b][start:end] = 1
     Act = np.array(Act) # ABIO
+    Count_cell = np.array(Count_cell) # ABIO
     if computeType == 0: 
-        Act = Act.reshape(((-1,)+shape)) #ABHWIO
-    return np.float32(Act) 
+        Act = Act.reshape(((-1,)+shape)) # ABHWIO
+        Count_cell = Count_cell.reshape(((-1,)+shape)) # ABHWIO
+    return np.float32(Act), np.float32(Count_cell)
 
-def compute_and_compose(x, w, IL, FL, WL, shape, unit, computeType, error_list):
+def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error_list):
     sess = tf.InteractiveSession()
     tf.global_variables_initializer().run()
     if computeType == 0: # Conv2d
@@ -56,18 +59,22 @@ def compute_and_compose(x, w, IL, FL, WL, shape, unit, computeType, error_list):
             shift_w = IL - 1
             # sign bit:
             if computeType == 0: # Conv2d
-                compute_result = tf.nn.conv2d(x[b_x], w[a][0], strides=[1,1,1,1], padding='SAME') 
+                compute_result = tf.nn.conv2d(x[b_x], w[a][0], strides=[1,1,1,1], padding='SAME')
+                count_result = tf.nn.conv2d(x[b_x], count[a][0], strides=[1,1,1,1], padding='SAME')
             else: # Matmul
                 compute_result = tf.matmul(x[b_x], w[a][0])
-            result_with_error = tf.py_func(insert_error, [compute_result, error_list, unit], tf.float32)
+                count_result = tf.matmul(x[b_x], count[a][0])
+            result_with_error = tf.py_func(insert_error, [compute_result, count_result, error_list, unit], tf.float32)
             bit_composed = result_with_error * (2**shift_w) * (-1)
             for b_w in range(1,WL):
                 shift_w -= 1
                 if computeType == 0: # Conv2d
                     compute_result = tf.nn.conv2d(x[b_x], w[a][b_w], strides=[1,1,1,1], padding='SAME') 
+                    count_result = tf.nn.conv2d(x[b_x], count[a][b_w], strides=[1,1,1,1], padding='SAME')
                 else: # Matmul
                     compute_result = tf.matmul(x[b_x], w[a][b_w])
-                result_with_error = tf.py_func(insert_error, [compute_result, error_list, unit], tf.float32)
+                    count_result = tf.matmul(x[b_x], count[a][b_w])
+                result_with_error = tf.py_func(insert_error, [compute_result, count_result, error_list, unit], tf.float32)
                 bit_composed += result_with_error * (2**shift_w)
             act_composed += bit_composed
         if b_x == 0:
@@ -77,13 +84,17 @@ def compute_and_compose(x, w, IL, FL, WL, shape, unit, computeType, error_list):
         shift_x -= 1
     return result
 
-def insert_error(arr, err_list, num_of_cell):
-    for x in np.nditer(arr, op_flags=['readwrite']):
+def insert_error(arr, table_index, err_list, num_of_cell):
+    shape = arr.shape
+    arr = arr.reshape(-1)
+    table_index = table_index.reshape(-1)
+    for index, x in enumerate(arr):
         probability = random.uniform(0,1)
-        for u in range(num_of_cell+1):
-            if probability <= err_list[num_of_cell-1][int(x[...])][u]:
-                x[...] = u
+        for u in range(int(table_index[index])+1):
+            if probability <= err_list[int(table_index[index])-1][int(arr[index])][u]:
+                arr[index] = u
                 break
+    arr = arr.reshape(shape)
     return arr
 
 def isround(p):
