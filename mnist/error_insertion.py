@@ -30,13 +30,12 @@ def decompose_unit(w, unit, computeType):
         Act.append(np.zeros(w.shape))
         Count_cell.append(np.zeros(w.shape))
         for b in range(w.shape[0]): # B
-            for i in range(w.shape[1]): # I
-                start = a * unit
-                end = (a+1)*unit
-                if end > w.shape[1]:
-                    end = w.shape[1]
-                Act[a][b][start:end] = w[b][start:end]
-                Count_cell[a][b][start:end] = 1
+            start = a * unit
+            end = (a+1)*unit
+            if end > w.shape[1]:
+                end = w.shape[1]
+            Act[a][b][start:end] = w[b][start:end]
+            Count_cell[a][b][start:end] = 1
     Act = np.array(Act) # ABIO
     Count_cell = np.array(Count_cell) # ABIO
     if computeType == 0: 
