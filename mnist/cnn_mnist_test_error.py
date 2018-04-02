@@ -10,15 +10,22 @@ from math import *
 from tqdm import tqdm
 start_time = time.time()
 
+if len(sys.argv) < 3:
+    print('Usage: python3 cnn_mnist_test_error.py [unit] [err_file.p]')
+    exit()
+
 # Parameter
 IL = 2
 FL = 4
 WL = IL + FL
 unit = int(sys.argv[1])
+error_file = sys.argv[2]
 batch_size = 1
 testing_img_number = 100
-error_list = pk.load(open('Error_file/Err_file_mean_3_var_0.02_0.38_SA_4.pkl', 'rb'))
-#error_list = pk.load(open('Error_file/perfect.p', 'rb'))
+error_list = pk.load(open(error_file, 'rb'))
+#error_list = pk.load(open('Error_file/Err_file_mean_3_var_0.02_0.38_SA_4.pkl', 'rb'))
+#error_list = pk.load(open('table.p', 'rb'))
+
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 # Create Model
