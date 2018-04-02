@@ -3,6 +3,8 @@ import random
 import tensorflow as tf
 from math import *
 
+ERR_LIST = []
+
 def crossbar(x, w, IL, FL, WL, unit, error_list, computeType):
     x_bit = tf.py_func(decompose_bit, [x, IL, FL, WL], tf.float32)
     w_bit = tf.py_func(decompose_bit, [w, IL, FL, WL], tf.float32)
@@ -18,34 +20,40 @@ def decompose_bit(x, IL, FL, WL):
     return np.float32(x).reshape(((-1,) + xshape))
 
 def decompose_unit(w, unit, computeType):
+    w = np.int8(w)
+
     if computeType == 0: # Conv2d(BHWIO)
         shape = w.shape 
         w = w.reshape(shape[0], -1, shape[4]) # BHWIO->BIO
     else: # Matmul(BIO)
         pass
-    Act = []
-    Count_cell = []
+
     A = ceil(w.shape[1] / unit)
+    
+    Act = np.array([w for i in range(A)])
+    Cnt = np.zeros((A,)+w.shape, dtype=np.int8)
+
+    start = -unit
+    end = 0
+
     for a in range(A): # A
-        Act.append(np.zeros(w.shape))
-        Count_cell.append(np.zeros(w.shape))
+        start += unit
+        end = min(start+unit, w.shape[1])
         for b in range(w.shape[0]): # B
-            start = a * unit
-            end = (a+1)*unit
-            if end > w.shape[1]:
-                end = w.shape[1]
-            Act[a][b][start:end] = w[b][start:end]
-            Count_cell[a][b][start:end] = 1
-    Act = np.array(Act) # ABIO
-    Count_cell = np.array(Count_cell) # ABIO
+            Cnt[a][b][start:end] = 1
+
+    Act &= Cnt
+
     if computeType == 0: 
         Act = Act.reshape(((-1,)+shape)) # ABHWIO
-        Count_cell = Count_cell.reshape(((-1,)+shape)) # ABHWIO
-    return np.float32(Act), np.float32(Count_cell)
+        Cnt = Cnt.reshape(((-1,)+shape)) # ABHWIO
+
+    return np.float32(Act), np.float32(Cnt)
 
 def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error_list):
-    sess = tf.InteractiveSession()
-    tf.global_variables_initializer().run()
+    global ERR_LIST
+    ERR_LIST = error_list
+    
     if computeType == 0: # Conv2d
         iterate = ceil(int(shape[0]*shape[1]*shape[2]) / unit)
     else: # Matmul
@@ -63,7 +71,8 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
             else: # Matmul
                 compute_result = tf.matmul(x[b_x], w[a][0])
                 count_result = tf.matmul(x[b_x], count[a][0])
-            result_with_error = tf.py_func(insert_error, [compute_result, count_result, error_list, unit], tf.float32)
+            count_result = tf.reshape(count_result, (-1,))
+            result_with_error = tf.py_func(insert_error, [compute_result, count_result], tf.float32)
             bit_composed = result_with_error * (2**shift_w) * (-1)
             for b_w in range(1,WL):
                 shift_w -= 1
@@ -73,7 +82,8 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
                 else: # Matmul
                     compute_result = tf.matmul(x[b_x], w[a][b_w])
                     count_result = tf.matmul(x[b_x], count[a][b_w])
-                result_with_error = tf.py_func(insert_error, [compute_result, count_result, error_list, unit], tf.float32)
+                count_result = tf.reshape(count_result, (-1,))
+                result_with_error = tf.py_func(insert_error, [compute_result, count_result], tf.float32)
                 bit_composed += result_with_error * (2**shift_w)
             act_composed += bit_composed
         if b_x == 0:
@@ -83,17 +93,15 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
         shift_x -= 1
     return result
 
-def insert_error(arr, table_index, err_list, num_of_cell):
-    shape = arr.shape
-    arr = arr.reshape(-1)
-    table_index = table_index.reshape(-1)
-    for index, x in enumerate(arr):
-        probability = random.uniform(0,1)
-        for u in range(int(table_index[index])+1):
-            if probability <= err_list[int(table_index[index])-1][int(arr[index])][u]:
-                arr[index] = u
-                break
-    arr = arr.reshape(shape)
+def insert_error(arr, m): #m: table_index
+    global ERR_LIST
+    i = 0
+    for x in np.nditer(arr, op_flags=['readwrite']):
+        j = int(x)
+        k = int(m[i])-1
+        if k < 0: continue
+        x[...] = ERR_LIST[k][j][random.randint(0, 99)]   
+        i += 1
     return arr
 
 def isround(p):

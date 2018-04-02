@@ -16,8 +16,8 @@ FL = 4
 WL = IL + FL
 unit = int(sys.argv[1])
 batch_size = 1
-testing_img_number = 5
-error_list = pk.load(open('Error_file/Err_file_3.34.pkl', 'rb'))
+testing_img_number = 100
+error_list = pk.load(open('Error_file/Err_file_mean_3_var_0.02_0.38_SA_4.pkl', 'rb'))
 #error_list = pk.load(open('Error_file/perfect.p', 'rb'))
 
 mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)

@@ -1,6 +1,6 @@
 import pickle as pk
 
-mylist = pk.load(open('Error_file/perfect.p', 'rb'))
+mylist = pk.load(open('old/Error_file/perfect.p', 'rb'))
 for k in range(mylist.shape[0]):
     for i in range(mylist.shape[1]):
         for j in range(mylist.shape[2]):
@@ -12,5 +12,7 @@ for k in range(mylist.shape[0]):
                 mylist[k][i][j] = 0
             else:
                 mylist[k][i][j] = 0
-mylist[0][1][0] = 1
-pk.dump(mylist, open('Error_file/perfect.p', 'wb'))
+mylist[0][1][0] = 1.0
+mylist[0][1][1] = 0
+print(mylist[0])
+pk.dump(mylist, open('perfect.p', 'wb'))

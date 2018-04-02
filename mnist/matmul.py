@@ -7,7 +7,7 @@ IL = 3
 FL = 0
 WL = IL+FL
 unit = 2
-error_list = pk.load(open('Error_file/perfect.p', 'rb'))
+error_list = pk.load(open('table.p', 'rb'))
 
 #x = tf.placeholder(tf.float32, shape=[None, 2], name='x')
 x = tf.constant([[1.,3.,3.]])
