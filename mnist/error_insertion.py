@@ -4,6 +4,7 @@ import tensorflow as tf
 from math import *
 
 ERR_LIST = []
+isInput0 = False
 
 def crossbar(x, w, IL, FL, WL, unit, error_list, computeType):
     x_bit = tf.py_func(decompose_bit, [x, IL, FL, WL], tf.float32)
@@ -72,7 +73,7 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
                 compute_result = tf.matmul(x[b_x], w[a][0])
                 count_result = tf.matmul(x[b_x], count[a][0])
             count_result = tf.reshape(count_result, (-1,))
-            result_with_error = tf.py_func(insert_error, [compute_result, count_result], tf.float32)
+            result_with_error = tf.py_func(insert_error, [compute_result, count_result, unit], tf.float32)
             bit_composed = result_with_error * (2**shift_w) * (-1)
             for b_w in range(1,WL):
                 shift_w -= 1
@@ -83,7 +84,7 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
                     compute_result = tf.matmul(x[b_x], w[a][b_w])
                     count_result = tf.matmul(x[b_x], count[a][b_w])
                 count_result = tf.reshape(count_result, (-1,))
-                result_with_error = tf.py_func(insert_error, [compute_result, count_result], tf.float32)
+                result_with_error = tf.py_func(insert_error, [compute_result, count_result, unit], tf.float32)
                 bit_composed += result_with_error * (2**shift_w)
             act_composed += bit_composed
         if b_x == 0:
@@ -93,15 +94,23 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
         shift_x -= 1
     return result
 
-def insert_error(arr, m): #m: table_index
+def insert_error(arr, m, unit): #m: table_index
     global ERR_LIST
+    global isInput0
     i = 0
-    for x in np.nditer(arr, op_flags=['readwrite']):
-        j = int(x)
-        k = int(m[i])-1
-        if k < 0: continue
-        x[...] = ERR_LIST[k][j][random.randint(0, 99)]   
-        i += 1
+    if isInput0:
+        for x in np.nditer(arr, op_flags=['readwrite']):
+            j = int(x)
+            k = int(m[i])-1
+            if k < 0: continue
+            x[...] = ERR_LIST[k][j][random.randint(0, 99)]   
+            i += 1
+    else:
+        for x in np.nditer(arr, op_flags=['readwrite']):
+            j = int(x)
+            k = unit - 1
+            x[...] = ERR_LIST[k][j][random.randint(0, 99)]
+            i += 1
     return arr
 
 def isround(p):
