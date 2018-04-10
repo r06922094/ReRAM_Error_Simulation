@@ -1,0 +1,10 @@
+Extracting MNIST_data/train-images-idx3-ubyte.gz
+Extracting MNIST_data/train-labels-idx1-ubyte.gz
+Extracting MNIST_data/t10k-images-idx3-ubyte.gz
+Extracting MNIST_data/t10k-labels-idx1-ubyte.gz
+IL: 2
+FL: 4
+batch size: 5
+# of testing data: 100
+accuracy: 0.08
+execution time: 780.6996557712555s

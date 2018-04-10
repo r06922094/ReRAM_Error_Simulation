@@ -4,7 +4,6 @@ import tensorflow as tf
 from math import *
 
 ERR_LIST = []
-isInput0 = False
 
 def crossbar(x, w, IL, FL, WL, unit, error_list, computeType):
     x_bit = tf.py_func(decompose_bit, [x, IL, FL, WL], tf.float32)
@@ -96,21 +95,13 @@ def compute_and_compose(x, w, count, IL, FL, WL, shape, unit, computeType, error
 
 def insert_error(arr, m, unit): #m: table_index
     global ERR_LIST
-    global isInput0
     i = 0
-    if isInput0:
-        for x in np.nditer(arr, op_flags=['readwrite']):
-            j = int(x)
-            k = int(m[i])-1
-            if k < 0: continue
-            x[...] = ERR_LIST[k][j][random.randint(0, 99)]   
-            i += 1
-    else:
-        for x in np.nditer(arr, op_flags=['readwrite']):
-            j = int(x)
-            k = unit - 1
-            x[...] = ERR_LIST[k][j][random.randint(0, 99)]
-            i += 1
+    for x in np.nditer(arr, op_flags=['readwrite']):
+        j = int(x)
+        k = int(m[i])-1
+        if k < 0: continue
+        x[...] = ERR_LIST[k][j][random.randint(0, 99)]   
+        i += 1
     return arr
 
 def isround(p):
