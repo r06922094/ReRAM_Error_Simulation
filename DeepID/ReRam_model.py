@@ -1,14 +1,15 @@
 import tensorflow as tf
-import error_insertion as ei
+import error_insertion_v2 as ei
 import pickle as pk
 import numpy as np
 
-IL = 2
-FL = 4
+# mnist: (2, 4)
+# cifar: (3, 6)
+# deepid:(3, 6) 0.90
+IL = 3
+FL = 6
 WL = IL + FL
-unit  = 10
-
-error_list = pk.load(open('table.p', 'rb'))
+unit  = 9
 
 def weight_variable(shape, stddev=0.1):
     initial = tf.truncated_normal(shape, stddev=stddev)
@@ -105,8 +106,13 @@ def _residual_block(x, is_train, name="unit"):
         x = x + shortcut
         x = tf.nn.relu(x, name='relu_2')
     return x
-def model_mnist(x_image, keep_prob, Err_insert = True):
-
+def model_mnist(x_image, keep_prob, Err_insert = True, err_path=''):
+    
+    error_list = []
+    if err_path:
+        error_list = pk.load(open(err_path, 'rb'))
+        print('load ', err_path)
+    
         # ==Convolution layer== #
     with tf.name_scope('Conv1'):
         print('build Conv1...')
@@ -157,43 +163,84 @@ def model_mnist(x_image, keep_prob, Err_insert = True):
     return h_fcon2
 
 
-def model_cifar10(x_image, Err_insert = True):
+def model_cifar10(x_image, err_path = '', Err_insert = True, test_bit = False, half=False):
+    error_list = []
+    if err_path:
+        error_list = pk.load(open(err_path, 'rb'))
+        print('load ', err_path)
     with tf.name_scope('Conv1'):
         W_conv1 = weight_variable([5,5,3,64])
         b_conv1 = bias_variable([64])
         if Err_insert :
             print('build Conv1...')
-            h_conv1 = ei.crossbar(x_image, W_conv1, IL, FL, WL, unit, error_list, 0, 'Conv1') + b_conv1
+            if test_bit:
+                x_image = tf.py_func(ei.just_convert_bit, [x_image, IL, FL, WL], tf.float32)
+                W_conv1 = tf.py_func(ei.just_convert_bit, [W_conv1, IL, FL, WL], tf.float32)
+                h_conv1 = tf.nn.conv2d(x_image, W_conv1, strides=[1,1,1,1], padding='SAME') + b_conv1
+            else:
+                h_conv1 = ei.crossbar(x_image, W_conv1, IL, FL, WL, unit, error_list, 0) + b_conv1
         else:
             h_conv1 = tf.nn.conv2d(x_image, W_conv1, strides=[1,1,1,1], padding='SAME') + b_conv1
-        h_conv1 = tf.nn.relu(h_conv1) # 28x28x32
-        h_pool1 = tf.nn.max_pool(h_conv1, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME') # 14x14x32
+        h_conv1 = tf.nn.relu(h_conv1)
+        h_pool1 = tf.nn.max_pool(h_conv1, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME')
 
     with tf.name_scope('Conv2'):
         W_conv2 = weight_variable([5,5,64,64])
         b_conv2 = bias_variable([64])
         if Err_insert :
             print('build Conv2...')
-            h_conv2 = ei.crossbar(h_pool1, W_conv2, IL, FL, WL, unit, error_list, 0, 'Conv2') + b_conv2
+            if test_bit:
+                h_pool1 = tf.py_func(ei.just_convert_bit, [h_pool1, IL, FL, WL], tf.float32)
+                W_conv2 = tf.py_func(ei.just_convert_bit, [W_conv2, IL, FL, WL], tf.float32)
+                h_conv2 = tf.nn.conv2d(h_pool1, W_conv2, strides=[1,1,1,1], padding='SAME') + b_conv2
+            else:
+                h_conv2 = ei.crossbar(h_pool1, W_conv2, IL, FL, WL, unit, error_list, 0) + b_conv2
         else:
             h_conv2 = tf.nn.conv2d(h_pool1, W_conv2, strides=[1,1,1,1], padding='SAME') + b_conv2
-        h_conv2 = tf.nn.relu(h_conv2) # 14x14x64
-        h_pool2 = tf.nn.max_pool(h_conv2, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME') # 7x7x64
+        h_conv2 = tf.nn.relu(h_conv2)
+        h_pool2 = tf.nn.max_pool(h_conv2, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME') # 6x6x64
 
+    with tf.name_scope('Conv3'):
+        W_conv3 = weight_variable([3,3,64,64])
+        b_conv3 = bias_variable([64])
+        if Err_insert :
+            print('build Conv3...')
+            if test_bit:
+                h_pool2 = tf.py_func(ei.just_convert_bit, [h_pool2, IL, FL, WL], tf.float32)
+                W_conv3 = tf.py_func(ei.just_convert_bit, [W_conv3, IL, FL, WL], tf.float32)
+                h_conv3 = tf.nn.conv2d(h_pool2, W_conv3, strides=[1,1,1,1], padding='SAME') + b_conv3
+            else:
+                h_conv3 = ei.crossbar(h_pool2, W_conv3, IL, FL, WL, unit, error_list, 0) + b_conv3
+        else:
+            h_conv3 = tf.nn.conv2d(h_pool2, W_conv3, strides=[1,1,1,1], padding='SAME') + b_conv3
+
+        h_conv3 = tf.nn.relu(h_conv3)
+        h_pool3 = tf.nn.max_pool(h_conv3, ksize=[1,2,2,1], strides=[1,2,2,1], padding='SAME') # 6x6x64
+
+    if half:
+        return h_pool3
     # ==Fully connected layer== #
     with tf.name_scope('Dense1'):
 
-        flatten = tf.reshape(h_pool2, [-1, 2304], name = 'Flatten')
-        W_fcon1 = weight_variable([2304, 384])
+        flatten = tf.reshape(h_pool3, [-1, 576], name = 'Flatten')
+        W_fcon1 = weight_variable([576, 384])
         b_fcon1 = bias_variable([384])
 
         with tf.name_scope('Formula'):
             if Err_insert :
                 print('build Dense1...')
-                h_fcon1 = ei.crossbar(flatten, W_fcon1, IL, FL, WL, unit, error_list, 1, 'Dense1') + b_fcon1
+                if test_bit:
+                    flatten = tf.py_func(ei.just_convert_bit, [flatten, IL, FL, WL], tf.float32)
+                    W_fcon1 = tf.py_func(ei.just_convert_bit, [W_fcon1, IL, FL, WL], tf.float32)
+                    h_fcon1 = tf.matmul(flatten, W_fcon1) + b_fcon1
+                else:
+                    h_fcon1 = ei.crossbar(flatten, W_fcon1, IL, FL, WL, unit, error_list, 1) + b_fcon1
             else:
                 h_fcon1 = tf.matmul(flatten, W_fcon1) + b_fcon1
         h_fcon1 = tf.nn.relu(h_fcon1)
+    
+
+    
 
     with tf.name_scope('Dense2'):
     
@@ -202,7 +249,12 @@ def model_cifar10(x_image, Err_insert = True):
         with tf.name_scope('Formula'):
             if Err_insert :
                 print('build Dense2...')
-                h_fcon2 = ei.crossbar(h_fcon1, W_fcon2, IL, FL, WL, unit, error_list, 1, 'Dense2') + b_fcon2
+                if test_bit:
+                    h_fcon1 = tf.py_func(ei.just_convert_bit, [h_fcon1, IL, FL, WL], tf.float32)
+                    W_fcon2 = tf.py_func(ei.just_convert_bit, [W_fcon2, IL, FL, WL], tf.float32)
+                    h_fcon2 = tf.matmul(h_fcon1, W_fcon2) + b_fcon2
+                else:
+                    h_fcon2 = ei.crossbar(h_fcon1, W_fcon2, IL, FL, WL, unit, error_list, 1) + b_fcon2
             else:
                 h_fcon2 = tf.matmul(h_fcon1, W_fcon2) + b_fcon2
 
@@ -215,19 +267,33 @@ def model_cifar10(x_image, Err_insert = True):
         with tf.name_scope('Formula'):
             if Err_insert :
                 print('build Dense3...')
-                h_fcon3 = ei.crossbar(h_fcon2, W_fcon3, 3, 13, 16, unit, error_list, 1, 'Dense3') + b_fcon3
+                if test_bit:
+                    h_fcon2 = tf.py_func(ei.just_convert_bit, [h_fcon2, IL, FL, WL], tf.float32)
+                    W_fcon3 = tf.py_func(ei.just_convert_bit, [W_fcon3, IL, FL, WL], tf.float32)
+                    h_fcon3 = tf.matmul(h_fcon2, W_fcon3) + b_fcon3
+                else:
+                    h_fcon3 = ei.crossbar(h_fcon2, W_fcon3, 3, 13, 16, unit, error_list, 1) + b_fcon3
             else:
                 h_fcon3 = tf.matmul(h_fcon2, W_fcon3) + b_fcon3
 
     return h_fcon3
         
-def model_DeepID(x_image, class_num, Err_insert = True, Training = False):
+def model_DeepID(x_image, class_num, Err_insert = True, Training = False, err_path = ''):
+    error_list = []
+    if err_path:
+        error_list = pk.load(open(err_path, 'rb'))
+        print('load ', err_path)
+    x_image = tf.cast(x_image, tf.float32) / 255.
+
     with tf.name_scope('Conv1'):
         W_conv1 = weight_variable([4,4,3,20])
         b_conv1 = bias_variable([20])
         if Err_insert :
             print('build Conv1...')
-            h_conv1 = ei.crossbar(x_image, W_conv1, IL, FL, WL, unit, error_list, 0, 'Conv1', padding_type='VALID') + b_conv1
+            #x_image = tf.py_func(ei.just_convert_bit, [x_image, IL, FL, WL], tf.float32)
+            #W_conv1 = tf.py_func(ei.just_convert_bit, [W_conv1, IL, FL, WL], tf.float32)
+            #h_conv1 = tf.nn.conv2d(x_image, W_conv1, strides=[1,1,1,1], padding='VALID') + b_conv1
+            h_conv1 = ei.crossbar(x_image, W_conv1, IL, FL, WL, unit, error_list, 0, padding_type='VALID') + b_conv1
         else:
             h_conv1 = tf.nn.conv2d(x_image, W_conv1, strides=[1,1,1,1], padding='VALID') + b_conv1
         h_conv1 = tf.nn.relu(h_conv1) # 28x28x32
@@ -238,7 +304,10 @@ def model_DeepID(x_image, class_num, Err_insert = True, Training = False):
         b_conv2 = bias_variable([40])
         if Err_insert :
             print('build Conv2...')
-            h_conv2 = ei.crossbar(h_pool1, W_conv2, IL, FL, WL, unit, error_list, 0, 'Conv2', padding_type='VALID') + b_conv2
+            #h_pool1 = tf.py_func(ei.just_convert_bit, [h_pool1, IL, FL, WL], tf.float32)
+            #W_conv2 = tf.py_func(ei.just_convert_bit, [W_conv2, IL, FL, WL], tf.float32)
+            #h_conv2 = tf.nn.conv2d(h_pool1, W_conv2, strides=[1,1,1,1], padding='VALID') + b_conv2
+            h_conv2 = ei.crossbar(h_pool1, W_conv2, IL, FL, WL, unit, error_list, 0, padding_type='VALID') + b_conv2
         else:
             h_conv2 = tf.nn.conv2d(h_pool1, W_conv2, strides=[1,1,1,1], padding='VALID') + b_conv2
         h_conv2 = tf.nn.relu(h_conv2)
@@ -249,7 +318,10 @@ def model_DeepID(x_image, class_num, Err_insert = True, Training = False):
         b_conv3 = bias_variable([60])
         if Err_insert :
             print('build Conv3...')
-            h_conv3 = ei.crossbar(h_pool2, W_conv3, IL, FL, WL, unit, error_list, 0, 'Conv3', padding_type='VALID') + b_conv3
+            #h_pool2 = tf.py_func(ei.just_convert_bit, [h_pool2, IL, FL, WL], tf.float32)
+            #W_conv3 = tf.py_func(ei.just_convert_bit, [W_conv3, IL, FL, WL], tf.float32)
+            #h_conv3 = tf.nn.conv2d(h_pool2, W_conv3, strides=[1,1,1,1], padding='VALID') + b_conv3
+            h_conv3 = ei.crossbar(h_pool2, W_conv3, IL, FL, WL, unit, error_list, 0, padding_type='VALID') + b_conv3
         else:
             h_conv3 = tf.nn.conv2d(h_pool2, W_conv3, strides=[1,1,1,1], padding='VALID') + b_conv3
         h_conv3 = tf.nn.relu(h_conv3)
@@ -260,7 +332,10 @@ def model_DeepID(x_image, class_num, Err_insert = True, Training = False):
         b_conv4 = bias_variable([80])
         if Err_insert :
             print('build Conv4...')
-            h_conv4 = ei.crossbar(h_pool3, W_conv4, IL, FL, WL, unit, error_list, 0, 'Conv4', padding_type='VALID') + b_conv4
+            #h_pool3 = tf.py_func(ei.just_convert_bit, [h_pool3, IL, FL, WL], tf.float32)
+            #W_conv4 = tf.py_func(ei.just_convert_bit, [W_conv4, IL, FL, WL], tf.float32)
+            #h_conv4 = tf.nn.conv2d(h_pool3, W_conv4, strides=[1,1,1,1], padding='VALID') + b_conv4
+            h_conv4 = ei.crossbar(h_pool3, W_conv4, IL, FL, WL, unit, error_list, 0, padding_type='VALID') + b_conv4
         else:
             h_conv4 = tf.nn.conv2d(h_pool3, W_conv4, strides=[1,1,1,1], padding='VALID') + b_conv4
         h_conv4 = tf.nn.relu(h_conv4)
@@ -280,8 +355,15 @@ def model_DeepID(x_image, class_num, Err_insert = True, Training = False):
         with tf.name_scope('Formula'):
             if Err_insert :
                 print('build Dense1...')
-                h_fcon1 = ei.crossbar(flatten_h3, W_fcon_h3, IL, FL, WL, unit, error_list, 1, 'Dense1') \
-                        + ei.crossbar(flatten_h4, W_fcon_h4, IL, FL, WL, unit, error_list, 1, 'Dense1') \
+                #flatten_h3 = tf.py_func(ei.just_convert_bit, [flatten_h3, IL, FL, WL], tf.float32)
+                #W_fcon_h3 = tf.py_func(ei.just_convert_bit, [W_fcon_h3, IL, FL, WL], tf.float32)
+                #flatten_h4 = tf.py_func(ei.just_convert_bit, [flatten_h4, IL, FL, WL], tf.float32)
+                #W_fcon_h4 = tf.py_func(ei.just_convert_bit, [W_fcon_h4, IL, FL, WL], tf.float32)
+
+                #h_fcon1 = tf.matmul(flatten_h3, W_fcon_h3) + tf.matmul(flatten_h4, W_fcon_h4) + b_fcon1
+
+                h_fcon1 = ei.crossbar(flatten_h3, W_fcon_h3, IL, FL, WL, unit, error_list, 1) \
+                        + ei.crossbar(flatten_h4, W_fcon_h4, IL, FL, WL, unit, error_list, 1) \
                         + b_fcon1
             else:
                 h_fcon1 = tf.matmul(flatten_h3, W_fcon_h3) + tf.matmul(flatten_h4, W_fcon_h4) + b_fcon1
